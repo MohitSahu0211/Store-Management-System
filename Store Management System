@@ -1,0 +1,481 @@
+
+#ALL IMPORTS
+
+from tkinter import *
+from tkinter import messagebox, ttk
+import mysql.connector
+import datetime as dt
+import re
+
+def stock_db():
+    return mysql.connector.connect(
+        host="localhost", user="root", password=" ", database="mohit"
+    )
+
+
+
+def invoice_db():
+    return mysql.connector.connect(
+        host="localhost", user="root", password=" ", database="mohit"
+    )
+
+#LOGIN MODULE
+def show_login(root):
+    login_window = Toplevel(root)
+    login_window.title("Login")
+    login_window.geometry("400x300")
+    login_window.configure(bg="#121212")
+
+    def check_login():
+        user = username_entry.get()
+        pwd = password_entry.get()
+
+        if user == "admin" and pwd == " ":
+            login_window.destroy()
+            root.deiconify()   # show main window
+        else:
+            messagebox.showerror("Error", "Invalid login")
+
+    # Close app completely if login window is closed
+    def close_app():
+        root.destroy()
+
+    login_window.protocol("WM_DELETE_WINDOW", close_app)
+
+    # Main frame
+    frame = Frame(login_window, bg="#1f2933", padx=30, pady=30)
+    frame.place(relx=0.5, rely=0.5, anchor=CENTER)
+
+    # Title
+    Label(frame, text="Login",
+          font=("Arial", 18, "bold"),
+          fg="white", bg="#1f2933").grid(row=0, column=0, columnspan=2, pady=10)
+
+    # Username
+    Label(frame, text="Username",
+          fg="white", bg="#1f2933").grid(row=1, column=0, sticky="w", pady=5)
+
+    username_entry = Entry(frame, bg="#121212", fg="white", insertbackground="white")
+    username_entry.grid(row=1, column=1, pady=5)
+
+    # Password
+    Label(frame, text="Password",
+          fg="white", bg="#1f2933").grid(row=2, column=0, sticky="w", pady=5)
+
+    password_entry = Entry(frame, show="*", bg="#121212", fg="white", insertbackground="white")
+    password_entry.grid(row=2, column=1, pady=5)
+
+    # Login Button
+    Button(frame, text="Login",
+           command=check_login,
+           bg="#4ade80", fg="black",
+           activebackground="#22c55e",
+           relief=FLAT, padx=10, pady=5).grid(row=3, column=0, columnspan=2, pady=15)
+
+# DASHBOARD
+root = Tk()
+root.withdraw()   # hide main window initially
+show_login(root)
+root.title("General Store Dashboard")
+root.geometry("1000x600")
+root.configure(bg="#121212")
+
+# STOCK WINDOW 
+def open_stock():
+    clear_content()
+    
+    stock_frame = Frame(content, bg="#1f2933")
+    stock_frame.pack(fill=BOTH, expand=True)
+    
+    db = stock_db()
+    cur = db.cursor()
+    def add():
+        try:
+            cur.execute(
+                "INSERT INTO stock (product_id, product_name, quantity, price) VALUES (%s,%s,%s,%s)",
+                (eid.get(), ename.get(), eqty.get(), eprice.get())
+            )
+            db.commit()
+            messagebox.showinfo("Success", "Product Added")
+        except:
+            messagebox.showerror("Error", "Product ID already exists")
+
+    def update():
+        cur.execute(
+            "UPDATE stock SET quantity=quantity+%s WHERE product_id=%s",
+            (eqty.get(), eid.get())
+        )
+        db.commit()
+        messagebox.showinfo("Updated", "Quantity Updated")
+
+        eid.delete(0, END)
+        ename.delete(0, END)
+        eqty.delete(0, END)
+        eprice.delete(0, END)
+        
+    def delete():
+        cur.execute("DELETE FROM stock WHERE product_id=%s", (eid.get(),))
+        db.commit()
+        messagebox.showinfo("Deleted", "Product Deleted")
+        
+    def edit_product():
+        cur.execute(
+            "UPDATE stock SET product_name=%s, price=%s WHERE product_id=%s",
+            (ename.get(), eprice.get(), eid.get())
+        )
+        db.commit()
+        messagebox.showinfo("Updated", "Product updated successfully")
+    
+    def pro_details():
+        
+    # Clear previous content
+        for widget in stock_frame.winfo_children():
+            if isinstance(widget, ttk.Treeview):
+                widget.destroy()
+
+        #scroll Bar 
+        scroll = Scrollbar(stock_frame)
+        scroll.grid(row=7, column=2, sticky="ns")
+        tree.configure(yscrollcommand=scroll.set)
+        scroll.config(command=tree.yview)
+        # Create Treeview
+        tree = ttk.Treeview(stock_frame, columns=("ID", "Product", "Qty", "Price"), show="headings")
+        tree.grid(row=7, column=0, columnspan=2, sticky="nsew")
+
+        # Define headings
+        tree.heading("ID", text="Product ID")
+        tree.heading("Product", text="Product Name")
+        tree.heading("Qty", text="Quantity")
+        tree.heading("Price", text="Price")
+
+        # Adjust column widths
+        tree.column("ID", width=100, anchor="center")
+        tree.column("Product", width=200, anchor="w")
+        tree.column("Qty", width=100, anchor="center")
+        tree.column("Price", width=100, anchor="center")
+
+        # Fetch data from DB
+        db = stock_db()
+        cur = db.cursor()
+        cur.execute("SELECT * FROM stock")
+        rows = cur.fetchall()
+
+        # Insert rows into Treeview
+        for row in rows:
+            tree.insert("", "end", values=row)
+
+       
+    # LABEL FOR STACK WINDOW
+    Label(stock_frame, text="\tManage Stock\t\t\t",font=("Arial", 22, "bold"),
+      fg="white", bg="#1f2933").grid(row=0, column=0, columnspan=9)
+
+    Label(stock_frame, text="Product ID", bg="#1f2933",
+      fg="white").grid(row=1, column=0, padx=10, pady=5)
+    eid = Entry(stock_frame); eid.grid(row=1, column=1, padx=10, pady=5)
+
+    Label(stock_frame, text="Name", bg="#1f2933",
+      fg="white").grid(row=2, column=0, padx=10, pady=5)
+    ename = Entry(stock_frame); ename.grid(row=2, column=1, padx=10, pady=5)
+
+    Label(stock_frame, text="Quantity", bg="#1f2933",
+      fg="white").grid(row=3, column=0, padx=10, pady=5)
+    eqty = Entry(stock_frame); eqty.grid(row=3, column=1, padx=10, pady=5)
+
+    Label(stock_frame, text="Price", bg="#1f2933",
+      fg="white").grid(row=4, column=0, padx=10, pady=5)
+    eprice = Entry(stock_frame); eprice.grid(row=4, column=1, padx=10, pady=5)
+    
+    #Label(win, text="Price").grid(row=4, column=0, padx=10, pady=5)
+    Button(stock_frame, text="Add", command=add,fg="white", bg="#121212").grid(row=5, column=1, pady=5)
+    Button(stock_frame, text="Update QTY", command=update ,fg="white", bg="#121212").grid(row=6, column=0)
+    Button(stock_frame, text="Delete Product", command=delete,fg="white", bg="#121212").grid(row=6, column=1)
+    Button(stock_frame, text="Edit Product", command=edit_product,fg="white", bg="#121212").grid(row=6, column=2)
+    Button(stock_frame, text="Product Petails", command=pro_details,fg="white", bg="#121212").grid(row=5, column=0,pady=5)
+    #Button(stock_frame, text="🏠", bg='red',command=stock_frame.destroy).grid(row=0, column=5,pady=5)
+    
+#BILLING WINDOW
+def open_billing():
+    clear_content()
+
+    bill = Frame(content, bg='#1f2933')
+    bill.pack(fill=BOTH, expand=True)
+    
+    cart = []
+
+    db = stock_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT product_name FROM stock")
+    products = [i[0] for i in cur.fetchall()]
+    
+    def add_to_cart():
+        product = combo.get()
+        try:
+            qty = int(eq.get())
+        except ValueError:
+            messagebox.showerror("Error", "Enter valid quantity")
+            return
+
+        cur.execute(
+            "SELECT quantity, price FROM stock WHERE product_name=%s", (product,)
+        )
+        stock_qty, price = cur.fetchone()
+
+        if qty > stock_qty:
+            messagebox.showerror("Error", "Insufficient Stock")
+            return
+
+        subtotal = qty * price
+        cart.append((product, qty, price, subtotal))
+        area.insert(END, f"{product}\t{qty}\t{price}\t{subtotal}\n")
+
+    def generate_bill():
+        name = ec.get()
+        if not name or not cart:    
+                messagebox.showerror("Error", "Enter customer name and add products")
+                return
+
+        phone = ep.get()
+
+        if not re.match("^[7-9][0-9]{9}$", phone):
+            messagebox.showerror("Error", "Invalid Phone")
+            return
+
+        subtotal = sum(i[3] for i in cart)
+        gst = total * 0.18
+        grand = total + gst
+        now = dt.datetime.now()
+        date = now.strftime("%d/%m/%Y %H:%M:%S")
+        date1 = now.strftime("%Y-%m-%d %H:%M:%S")
+        # Build product lines by G
+        product_lines = ""
+        for product, qty, price, subtotal in cart:
+            product_lines += f"{product}\t{qty}\t₹{price}\t₹{subtotal}\n"
+
+            lbl_result.config(
+            text=f"""Gupta General Store
+-----------------------------------------------
+GSTIN NO.: 36AACCA8432H1ZR
+Phone no : 040-277145657
+-----------------------------------------------
+Customer Name: {name}
+Phone no :{phone}
+Date & Time: {date}
+-----------------------------------------------
+Products:
+{product_lines}
+Subtotal: ₹{subtotal}
+GST (18%): ₹{gst:.2f}
+Total: ₹{grand:.2f}
+-----------------------------------------------
+Thank you for visiting !!!""")
+    
+        idb = invoice_db()
+        icur = idb.cursor()
+
+        for p, q, pr, _ in cart:
+            icur.execute(
+                "INSERT INTO invoices (customer,phone,product,quantity,bill_date,price,gst,subtotal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (name, phone, p, q, date1, pr, gst, grand)
+            )
+            cur.execute(
+                "UPDATE stock SET quantity = quantity-%s WHERE product_name=%s",
+                (q, p)
+            )
+
+        db.commit()
+        idb.commit()
+        messagebox.showinfo("Done", "Invoice Generated")
+    def refresh():     
+        ec.delete(0, END)
+        ep.delete(0,END)
+        eq.delete(0,END)
+        combo.delete(0,END)
+        area.delete(1.0, END)
+        lbl_result.config(text="")
+        cart.clear()
+
+
+    def view_invoices():
+        data = Toplevel(root)
+        data.title("All Invoices")
+        data.geometry("850x300")
+        data.configure(bg='grey')
+
+    # Create Treeview
+        tree = ttk.Treeview(data, columns=("ID","Customer","Phone","Product","Qty","Date","Price","GST","Total"), show="headings")
+        tree.pack(fill=BOTH, expand=True)
+
+    # Define headings
+        headers = ["ID","Customer","Phone","Product","Qty","Date","Price","GST","Total"]
+        for h in headers:
+            tree.heading(h, text=h)
+            tree.column(h, width=100, anchor="center")
+
+    # Fetch data
+        idb = invoice_db()
+        icur = idb.cursor()
+        icur.execute("SELECT * FROM invoices")
+        rows = icur.fetchall()
+        idb.close()
+
+    # Insert rows
+        for row in rows:
+            tree.insert("", "end", values=row)
+
+    #UI Design
+    #Label(bill, text="Gupta General Store", font=("times new roman", 16, "bold"),
+          #bg='#228B22').grid(row=0, column=0,pady=10,padx=10 )
+    Label(bill, text="Gupta General Store",
+      font=("Arial", 18, "bold"),
+      bg="#1f2933",fg='white').grid(row=0, column=0, pady=10)
+    Label(bill, text="Customer Name",fg='white', bg='#1f2933').grid(row=1, column=0, padx=10, pady=5)
+    ec = Entry(bill); ec.grid(row=1, column=1, padx=10, pady=5)
+
+    Label(bill, text="Phone",fg='white', bg='#1f2933').grid(row=2, column=0, padx=10, pady=5)
+    ep = Entry(bill); ep.grid(row=2, column=1, padx=10, pady=5)
+
+    Label(bill, text="Product",fg='white', bg='#1f2933').grid(row=3, column=0, padx=10, pady=5)
+    combo = ttk.Combobox(bill, values=products)
+    combo.grid(row=3, column=1, padx=10, pady=5)
+
+    Label(bill, text="Quantity",fg='white', bg='#1f2933').grid(row=4, column=0, padx=10, pady=5)
+    eq = Entry(bill); eq.grid(row=4, column=1, padx=10, pady=5)
+
+    Button(bill, text="Add Product📥", command=add_to_cart,fg="white", bg="#121212").grid(row=5, column=1, padx=10, pady=5)
+
+    Label(bill, text="Bill Details",fg="white", bg="#121212").grid(row=5, column=0, padx=10, pady=5)
+    
+    area = Text(bill, height=10, width=50)
+    area.grid(row=6, column=0, columnspan=2, padx=10, pady=5)
+    
+    Button(bill, text="Generate Invoice📜", command=generate_bill,fg="white", bg="#121212").grid(row=7, column=0, padx=10, pady=5)
+    
+    Button(bill, text="Refresh 🗘", bg='lightyellow', command=refresh)\
+    .grid(row=7, column=1, columnspan=3, padx=10,pady=5)
+    
+    Button(bill, text=" Transactions History 📋", bg='red',
+    command=view_invoices).grid(row=0, column=1,pady=5)
+
+    lbl_result = Label(bill, text="", fg="blue", bg='skyblue', font=("Arial", 10))
+    lbl_result.grid(row=8, column=0, columnspan=2, pady=10)
+
+#SIDE BAR
+sidebar = Frame(root, bg="#1e1e1e", width=400,height=1000)
+sidebar.pack(side=LEFT, fill=X)
+
+'''Label(sidebar, text="MENU       ",
+      bg="#111827", fg="white",
+      font=("Arial", 14, "bold"), height=2).pack(fill=X, pady=10)'''
+
+def side_btn(text, cmd=None):
+    Button(sidebar, text=text, command=cmd,
+           bg="#1f2933", fg="white",
+           relief=FLAT, height=2,
+           activebackground="#4ade80",
+           activeforeground="black").pack(fill=X, pady=30)
+    
+# MAIN CONTENT
+content = Frame(root, bg="#121212")
+content.pack(side=LEFT, fill=BOTH, expand=True, padx=20, pady=20)
+
+def clear_content():
+    for widget in content.winfo_children():
+        widget.destroy()
+
+def dash():
+    clear_content()
+    # -------- TOP CARDS --------
+    Label(content, text="General Store Dashboard",
+      font=("Arial", 22, "bold"),
+      fg="white", bg="#121212").pack(side=TOP,anchor="w", pady=10)
+    
+    cards = Frame(content, bg="#121212")
+    cards.pack(fill=X, pady=20)
+
+    def info_card(parent, title, value):
+        card = Frame(parent, bg="#1f2933", width=300, height=600)
+        card.pack(side=LEFT, padx=10)
+        Label(card, text=title,
+              fg="#9ca3af", bg="#1f2933",
+              font=("Arial", 12, "bold")).pack(pady=10)
+        Label(card, text=value,
+              fg="#4ade80", bg="#1f2933",
+              font=("Arial", 22, "bold")).pack()
+
+    info_card(cards, "Total Products", get_total_products())
+    info_card(cards, "Total Buy", f"₹ {get_total_buy():.2f}")
+
+    # -------- BOTTOM PANELS --------
+    bottom = Frame(content, bg="#121212")
+    bottom.pack(fill=BOTH, expand=True)
+
+    # Latest Store
+    store_frame = Frame(bottom, bg="#1f2933")
+    store_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10)
+
+    Label(store_frame, text="Latest Store",
+          fg="white", bg="#1f2933",
+          font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=10)
+
+    for p, q, pr in get_latest_store():
+        Label(store_frame,
+              text=f"{p} | Qty: {q} | ₹{pr}",
+              fg="#d1d5db", bg="#1f2933",
+          font=("Arial", 14)).pack(anchor="w", padx=20)
+
+    # Latest Spend
+    spend_frame = Frame(bottom, bg="#1f2933")
+    spend_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10)
+
+    Label(spend_frame, text="Latest Spend",
+          fg="white", bg="#1f2933",
+          font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=10)
+
+    for name, q, grand in get_latest_bill():
+        Label(spend_frame,
+              text=f"{name} | Qty: {q} | ₹{grand}",
+              fg="#d1d5db", bg="#1f2933",font=("Arial", 14)).pack(anchor="w", padx=20)
+
+# DASHBOARD DATA
+def get_total_products():
+    db = stock_db()
+    cur = db.cursor()
+    cur.execute("SELECT COUNT(*) FROM stock")
+    return cur.fetchone()[0]
+
+def get_total_buy():
+    db = stock_db()
+    cur = db.cursor()
+    try:
+        cur.execute("SELECT SUM(total) FROM invoices")
+        val = cur.fetchone()[0]
+        return val if val else 0
+    except:
+        return 0
+
+def get_latest_bill():
+    db = stock_db()
+    cur = db.cursor()
+    cur.execute("SELECT customer,quantity,total FROM invoices ORDER BY id DESC LIMIT 5")
+    return cur.fetchall()
+
+def get_latest_store():
+    db = stock_db()
+    cur = db.cursor()
+    cur.execute("SELECT product_name, quantity, price FROM stock ORDER BY product_id DESC LIMIT 5")
+    return cur.fetchall()
+
+#SIDEBAR 
+
+side_btn("                         Dashboard      ",dash)
+side_btn("                         Stock      ", open_stock)
+side_btn("                         Billing      ", open_billing)
+side_btn("                         Reports      ")
+side_btn("                         Exit      ", root.destroy)
+
+
+dash()
+root.mainloop()
+
+
